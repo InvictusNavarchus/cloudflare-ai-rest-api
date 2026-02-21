@@ -1,19 +1,25 @@
 import { Hono } from 'hono'
-import { WorkersAILLMModelSchema } from './types/zod-validation'
+import { WorkersAILLMModelSchema, WorkersAILLMModel } from './types/zod-validation'
 import { z } from 'zod'
 
+/**
+ * Override for the Cloudflare `Ai` runtime binding.
+ * The wrangler-generated `AiModels` type is not always up-to-date with
+ * models listed in the official docs, so we define our own `run` signature
+ * scoped to the models Cloudflare actually support.
+ */
+interface CloudflareAi {
+  run(model: WorkersAILLMModel, inputs: Record<string, unknown>): Promise<unknown>
+}
+
 interface Env {
-  AI: Ai
+  AI: CloudflareAi
 }
 
 const RequestBodySchema = z.object({
   prompt: z.string().max(1000),
   model: WorkersAILLMModelSchema
 })
-
-interface Ai {
-  run(model: string, payload: Record<string, string>): Promise<any>
-}
 
 const app = new Hono<{ Bindings: Env }>()
 
