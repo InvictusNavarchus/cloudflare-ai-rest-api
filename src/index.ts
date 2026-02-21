@@ -11,8 +11,6 @@ const RequestBodySchema = z.object({
   model: WorkersAILLMModelSchema
 })
 
-type RequestBody = z.infer<typeof RequestBodySchema>
-
 interface Ai {
   run(model: string, payload: Record<string, string>): Promise<any>
 }
@@ -20,9 +18,22 @@ interface Ai {
 const app = new Hono<{ Bindings: Env }>()
 
 app.post('/', async (c) => {
-  const requestBody: RequestBody = RequestBodySchema.parse(await c.req.json())
-  const prompt = requestBody.prompt;
-  const model = requestBody.model;
+  const parsed = RequestBodySchema.safeParse(await c.req.json())
+
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: 'Invalid request',
+        issues: parsed.error.issues.map(i => ({
+          field: i.path.join('.'),
+          message: i.message,
+        })),
+      },
+      400
+    )
+  }
+  const prompt = parsed.data.prompt
+  const model = parsed.data.model;
   const payload = {prompt}
   const response = await c.env.AI.run(model, payload)
   return c.json(response)
